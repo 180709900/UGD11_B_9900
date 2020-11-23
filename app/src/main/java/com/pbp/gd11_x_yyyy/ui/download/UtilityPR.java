@@ -12,6 +12,7 @@ public final class UtilityPR {
 
     private UtilityPR() {
         // no instance
+
     }
 
     public static String getRootDirPath(Context context) {
