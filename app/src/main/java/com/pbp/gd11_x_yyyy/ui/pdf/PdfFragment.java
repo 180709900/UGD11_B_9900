@@ -2,6 +2,7 @@ package com.pbp.gd11_x_yyyy.ui.pdf;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.LauncherActivityInfo;
@@ -28,6 +29,11 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
 import com.itextpdf.text.BaseColor;
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.Element;
@@ -38,17 +44,26 @@ import com.itextpdf.text.Rectangle;
 import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
+import com.pbp.gd11_x_yyyy.AdapterBuku;
+import com.pbp.gd11_x_yyyy.Buku;
 import com.pbp.gd11_x_yyyy.R;
 import com.shashank.sony.fancytoastlib.FancyToast;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+
+import static com.android.volley.Request.Method.GET;
 
 public class PdfFragment extends Fragment {
 
@@ -58,39 +73,36 @@ public class PdfFragment extends Fragment {
     final private int REQUEST_CODE_ASK_PERMISSIONS = 101;
     private File pdfFile;
     private PdfWriter writer;
+    private AdapterBuku adapter;
     private AlertDialog.Builder builder;
     private Button btnCetak;
+    private List<Buku> listBuku;
+    private View view;
     //TODO 2.0 - Ubah Nama dan NIM pada data nomor 1 di bawah ini
-    Mahasiswa[] mhs=new Mahasiswa[]{
-            new Mahasiswa(0,"Nama", "NIM"),
-            new Mahasiswa(1,"Andreas", "180709900"),
-            new Mahasiswa(2,"Sulastri Atmojo", "170709246"),
-            new Mahasiswa(3,"Andi Kavua", "170709728"),
-            new Mahasiswa(4,"Franky Sibaja", "170709229"),
-            new Mahasiswa(5,"Kristina Devi", "170709299")
-    };
+
 
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
         pdfViewModel =
                 new ViewModelProvider(this).get(PdfViewModel.class);
-        View root = inflater.inflate(R.layout.fragment_pdf, container, false);
+        view = inflater.inflate(R.layout.fragment_pdf, container, false);
 
-
-        RecyclerView rv = root.findViewById(R.id.rvMhs);
-        MahasiswaAdapter adapter = new MahasiswaAdapter(mhs);
+        getBuku();
+        listBuku = new ArrayList<Buku>();
+        RecyclerView rv = view.findViewById(R.id.rvMhs);
+        adapter = new AdapterBuku(view.getContext(),listBuku);
         rv.setHasFixedSize(true);
         rv.setLayoutManager(new LinearLayoutManager(getContext()));
         rv.setAdapter(adapter);
 
-        btnCetak=root.findViewById(R.id.btnCetak);
+        btnCetak=view.findViewById(R.id.btnCetak);
         btnCetak.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 builder = new AlertDialog.Builder(getContext());
 
                 builder.setCancelable(false);
-                builder.setMessage("Apakah anda yakin ingin mencetak surat pemesanan ?");
+                builder.setMessage("Berikut merupakan koleksi buku dari mahasiswa 9900 ?");
                 builder.setPositiveButton("Ya", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
@@ -119,7 +131,7 @@ public class PdfFragment extends Fragment {
             }
         });
 
-        return root;
+        return view;
     }
 
     private void createPdf() throws FileNotFoundException, DocumentException {
@@ -130,14 +142,14 @@ public class PdfFragment extends Fragment {
             Log.i(TAG, "Direktori baru untuk file pdf berhasil dibuat");
         }
         //TODO 2.1 - Ubah NPM menjadi NPM anda
-        String pdfname = "SuratKeterangan9900"+".pdf";
+        String pdfname = "KelengkapanKoleksiBuku9900"+".pdf";
         pdfFile = new File(docsFolder.getAbsolutePath(), pdfname);
         OutputStream output = new FileOutputStream(pdfFile);
         com.itextpdf.text.Document document = new com.itextpdf.text.Document(PageSize.A4);
         writer = PdfWriter.getInstance(document, output);
         document.open();
         //TODO 2.2 - Ubah XXXX menjadi NPM anda
-        Paragraph judul = new Paragraph(" SURAT KETERANGAN 9900 \n\n", new
+        Paragraph judul = new Paragraph(" KELENGKAPAN KOLEKSI BUKU 9900 \n\n", new
                 com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.TIMES_ROMAN, 16,
                 com.itextpdf.text.Font.BOLD, BaseColor.BLACK));
         judul.setAlignment(Element.ALIGN_CENTER);
@@ -174,8 +186,7 @@ public class PdfFragment extends Fragment {
         com.itextpdf.text.Font f = new
                 com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.TIMES_ROMAN, 10,
                 com.itextpdf.text.Font.NORMAL, BaseColor.BLACK);
-        Paragraph Pembuka = new Paragraph("\nMahasiswa di bawah ini benar merupakan mahasiswa " +
-                "yang mengerjakan modul 11 Library 2 : \n\n",f);
+        Paragraph Pembuka = new Paragraph("\nBerikut merupakan koleksi buku dari mahasiswa 9900 : \n\n",f);
         Pembuka.setIndentationLeft(20);
         document.add(Pembuka);
         PdfPTable tableHeader = new PdfPTable(new float[]{1,5,5});
@@ -185,13 +196,13 @@ public class PdfFragment extends Fragment {
         tableHeader.setTotalWidth(PageSize.A4.getWidth());
         tableHeader.setWidthPercentage(100);
         //TODO 2.5 - Bagian ini tidak perlu diubah
-        PdfPCell h1 = new PdfPCell(new Phrase("No"));
+        PdfPCell h1 = new PdfPCell(new Phrase("Nama Buku"));
         h1.setHorizontalAlignment(Element.ALIGN_CENTER);
         h1.setPaddingBottom(5);
-        PdfPCell h2 = new PdfPCell(new Phrase("Nama Mahasiswa"));
+        PdfPCell h2 = new PdfPCell(new Phrase("Pengarang"));
         h2.setHorizontalAlignment(Element.ALIGN_CENTER);
         h2.setPaddingBottom(5);
-        PdfPCell h4 = new PdfPCell(new Phrase("NIM"));
+        PdfPCell h4 = new PdfPCell(new Phrase("Harga Buku"));
         h4.setHorizontalAlignment(Element.ALIGN_CENTER);
         h4.setPaddingBottom(5);
         tableHeader.addCell(h1);
@@ -208,15 +219,15 @@ public class PdfFragment extends Fragment {
         tableData.setTotalWidth(PageSize.A4.getWidth());
         tableData.setWidthPercentage(100);
         tableData.getDefaultCell().setVerticalAlignment(Element.ALIGN_MIDDLE);
-        int arrLength = mhs.length;
+        int arrLength = listBuku.size();
         for(int x=1;x<arrLength;x++){
             for(int i=0;i<cells.length;i++){
                 if(i==0){
-                    tableData.addCell(String.valueOf(mhs[x].getNomor()));
+                    tableData.addCell(listBuku.get(x).getNamaBuku());
                 }else if(i==1){
-                    tableData.addCell(mhs[x].getNama());
+                    tableData.addCell(listBuku.get(x).getPengarang());
                 }else{
-                    tableData.addCell(mhs[x].getNim());
+                    tableData.addCell(String.valueOf(listBuku.get(x).getHarga()));
                 }
             }
         }
@@ -305,6 +316,64 @@ public class PdfFragment extends Fragment {
                     FancyToast.LENGTH_LONG,FancyToast.WARNING,true).show();
         }
 
+    }
+    public void getBuku() {
+        RequestQueue queue = Volley.newRequestQueue(view.getContext());
+
+        //Meminta tanggapan string dari URL yang telah disediakan menggunakan method GET
+        //untuk request ini tidak memerlukan parameter
+        final ProgressDialog progressDialog;
+        progressDialog = new ProgressDialog(view.getContext());
+        progressDialog.setMessage("loading....");
+        progressDialog.setTitle("Menampilkan data buku");
+        progressDialog.setProgressStyle(android.app.ProgressDialog.STYLE_SPINNER);
+        progressDialog.show();
+
+        final JsonObjectRequest stringRequest = new JsonObjectRequest(GET, "https://pbp.pelangidb.com/api/buku"
+                , null, new Response.Listener<JSONObject>() {
+            @Override
+            public void onResponse(JSONObject response) {
+                progressDialog.dismiss();
+                try {
+                    //Mengambil data response json object yang berupa data mahasiswa
+                    JSONArray jsonArray = response.getJSONArray("dataBuku");
+
+                    if(!listBuku.isEmpty())
+                        listBuku.clear();
+
+                    for (int i = 0; i < jsonArray.length(); i++) {
+                        //Mengubah data jsonArray tertentu menjadi json Object
+                        JSONObject jsonObject = (JSONObject) jsonArray.get(i);
+
+                        int idBuku              = jsonObject.optInt("idBuku");
+                        String namaBuku            = jsonObject.optString("namaBuku");
+                        String pengarang    = jsonObject.optString("pengarang");
+                        double harga            = jsonObject.optDouble("harga");
+                        String gambar           = jsonObject.optString("gambar");
+
+                        //Membuat objek user
+                        Buku buku = new Buku(idBuku,namaBuku,  pengarang, harga, gambar);
+
+                        //Menambahkan objek user tadi ke list user
+                        listBuku.add(buku);
+                    }
+                    adapter.notifyDataSetChanged();
+                }catch (JSONException e){
+                    e.printStackTrace();
+                }
+                Toast.makeText(view.getContext(), response.optString("message"),
+                        Toast.LENGTH_SHORT).show();
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                progressDialog.dismiss();
+                Toast.makeText(view.getContext(), error.getMessage(),
+                        Toast.LENGTH_SHORT).show();
+            }
+            });
+
+        queue.add(stringRequest);
     }
 
 

@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">GD11_B_9900</string>
+    <string name="app_name">UGD11_B_9900</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
-    <string name="nav_header_title">GUIDED LIBRARY 2</string>
+    <string name="nav_header_title">UNGUIDED LIBRARY 2</string>
     <string name="nav_header_subtitle">Dre - 180709900</string>
     <string name="nav_header_desc">Navigation header</string>
     <string name="action_home">Home</string>
